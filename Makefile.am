@@ -13,7 +13,7 @@ ACLOCAL_AMFLAGS = -I m4
 lib_LTLIBRARIES = libcpptk.la
 nobase_pkginclude_HEADERS = base/cpptkbase.h cpptkoptions.x cpptkconstants.x cpptk.h
 libcpptk_la_SOURCES = base/cpptkbase.cc cpptk.cc
-libcpptk_la_CXXFLAGS = @TK_CFLAGS@
+libcpptk_la_CXXFLAGS = @TK_CFLAGS@ -std=c++14
 libcpptk_la_LDFLAGS = -version-info 0:0:0 @TK_LIBS@
 
 # pkg-config information

@@ -27,8 +27,10 @@ class Interp
 public:
      Interp()
      {
+          if(!gthread) {
+               gthread = Tcl_GetCurrentThread();
+          }
           interp_ = Tcl_CreateInterp();
-	
           int cc = Tcl_Init(interp_);
           if (cc != TCL_OK)
           {
@@ -57,20 +59,38 @@ public:
      
      Tcl_Interp * get() const { return interp_; }
 
+     Tcl_ThreadId getGuiThread() { return gthread; }     
+
 private:
+     Tcl_ThreadId gthread = NULL;
      Tcl_Interp * interp_;
 };
-
+static Interp interp;
 // lazy-initialization of Tcl interpreter
 Tcl_Interp * getInterp()
 {
-     static Interp interp;
      return interp.get();
 }
 
 // output stream for dumping Tk commands
 // (useful for automated testing)
+
+struct tcevent {
+	Tcl_Event event;
+	std::string *tcl;
+};
+
 std::ostream *dumpstream = &std::cerr;
+int proc(Tcl_Event *evPtr, int flags) {
+     tcevent *t = (tcevent*)evPtr;
+     int cc = Tcl_Eval(getInterp(), t->tcl->c_str());
+     if (cc != TCL_OK) {
+          throw TkError(Tcl_GetStringResult(getInterp()));
+     }
+     delete (*t).tcl;
+     delete t;
+     return 1;
+}
 
 void do_eval(std::string const &str)
 {
@@ -79,10 +99,18 @@ void do_eval(std::string const &str)
 #endif // CPPTK_DUMP_COMMANDS
 
 #ifndef CPPTK_DONT_EVALUATE
-     int cc = Tcl_Eval(getInterp(), str.c_str());
-     if (cc != TCL_OK)
-     {
-          throw TkError(Tcl_GetStringResult(getInterp()));
+     if(Tcl_GetCurrentThread() == interp.getGuiThread()) {
+          int cc = Tcl_Eval(getInterp(), str.c_str());
+          if (cc != TCL_OK)
+          {
+               throw TkError(Tcl_GetStringResult(getInterp()));
+          } 
+     } else {
+          tcevent *event = new tcevent;
+          event->event.proc = &proc;
+          event->tcl = new std::string(str);
+          event->event.nextPtr = NULL;
+          Tcl_ThreadQueueEvent(interp.getGuiThread(), (Tcl_Event*)event, TCL_QUEUE_TAIL);
      }
 #endif
 }
