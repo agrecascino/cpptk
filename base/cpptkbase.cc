@@ -75,8 +75,7 @@ Tcl_Interp * getInterp()
 // output stream for dumping Tk commands
 // (useful for automated testing)
 
-struct tcevent {
-	Tcl_Event event;
+struct tcevent : public Tcl_Event {
 	std::string *tcl;
 };
 
@@ -88,7 +87,6 @@ int proc(Tcl_Event *evPtr, int flags) {
           throw TkError(Tcl_GetStringResult(getInterp()));
      }
      delete (*t).tcl;
-     delete t;
      return 1;
 }
 
@@ -106,10 +104,10 @@ void do_eval(std::string const &str)
                throw TkError(Tcl_GetStringResult(getInterp()));
           } 
      } else {
-          tcevent *event = new tcevent;
-          event->event.proc = &proc;
+          tcevent *event = (tcevent*)Tcl_Alloc(sizeof(tcevent));
+          event->proc = &proc;
           event->tcl = new std::string(str);
-          event->event.nextPtr = NULL;
+          event->nextPtr = NULL;
           Tcl_ThreadQueueEvent(interp.getGuiThread(), (Tcl_Event*)event, TCL_QUEUE_TAIL);
      }
 #endif
